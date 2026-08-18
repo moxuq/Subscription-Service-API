@@ -30,8 +30,8 @@ class PlanOut(BaseModel):
     id: int
     name: str
     price: float
-    features: list
-    duration_days: datetime
+    features: list[dict]
+    duration_days: int
     
     model_config = ConfigDict(from_attributes=True)
     
@@ -40,12 +40,12 @@ class SubscriptionCreate(BaseModel):
     
     model_config = ConfigDict(extra='forbid')
     
-class SubsriptionOut(BaseModel):
+class SubscriptionOut(BaseModel):
     id: int
     plan: PlanOut
     status: str
     started_at: datetime
-    expires_at: datetime
+    expires_at: datetime | None
     
     model_config = ConfigDict(from_attributes=True)
     
@@ -68,7 +68,7 @@ class WebhookPayload(BaseModel):
     model_config = ConfigDict(extra='forbid')
     
 class StatsOut(BaseModel):
-    mrr: int
+    mrr: float
     active_subscriptions: int
     total_users: int
     

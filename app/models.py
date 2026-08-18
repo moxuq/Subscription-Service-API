@@ -22,7 +22,7 @@ class Plan(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     price: Mapped[float] = mapped_column(Numeric(10,2), nullable=False)
-    features: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=[])
+    features: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     
     subscriptions: Mapped[list['Subscription']] = relationship(back_populates='plan')
@@ -39,8 +39,8 @@ class Subscription(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     
     user: Mapped['User'] = relationship(back_populates='subscription')
-    plan: Mapped['Plan'] = relationship(back_populates='subsription')
-    payment: Mapped['Payment'] = relationship(back_populates='subsription')
+    plan: Mapped['Plan'] = relationship(back_populates='subscription')
+    payment: Mapped['Payment'] = relationship(back_populates='subscription')
 
 class Payment(Base):
     __tablename__ = 'payments'
