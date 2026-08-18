@@ -16,6 +16,8 @@ pwd_context = CryptContext(schemes=['argon2'])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/login')
 ALGORITHM = os.getenv('ALGORITHM')
 SECRET_KEY = os.getenv('SECRET_KEY')
+REFRESH_TOKEN_DAYS = os.getenv('REFRESH_TOKEN_DAYS')
+ACCESS_TOKEN_MINUTES = os.getenv('ACCESS_TOKEN_MINUTES')
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -24,12 +26,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 def create_access_token(user: OAuth2PasswordRequestForm) -> str:
-    exp = datetime.utcnow() + timedelta(minutes=60)
+    exp = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_MINUTES)
     payload = {'sub': user.username, 'type': 'access', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
 def create_refresh_token(user: OAuth2PasswordRequestForm) -> str:
-    exp = datetime.utcnow() + timedelta(days=7)
+    exp = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_DAYS)
     payload = {'sub': user.username, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
