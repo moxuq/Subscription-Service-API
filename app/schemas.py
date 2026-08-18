@@ -1,10 +1,17 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
-from typing import Annotated
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
+from typing import Annotated, Literal, Any
 from datetime import datetime
 
 class UserCreate(BaseModel):
     email: Annotated[EmailStr, Field()]
     password: Annotated[str, Field(min_length=6, max_length=72)]
+    
+    @field_validator('email', mode='before')
+    @classmethod
+    def normalize_email(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
     
     model_config = ConfigDict(extra='forbid')
     
@@ -19,7 +26,7 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: Annotated[str, Field()]
     refresh_token: Annotated[str, Field()]
-    token_type: Annotated[str, Field(default='bearer')]
+    token_type: Annotated[Literal['bearer'], Field()]
     
 class RefreshRequest(BaseModel):
     refresh_token: str
