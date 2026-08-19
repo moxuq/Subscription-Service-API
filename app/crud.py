@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta
 
+from .auth import hash_password
 from .models import User, Plan, Subscription, Payment, ProcessedWebhook
 from .schemas import UserCreate, StatsOut
 
@@ -15,7 +16,7 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User:
     db_user = await get_user_by_email(db, user.email)
     if db_user is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Пользователь с таким email уже существует')
-    new_user = User(**user.model_dump())
+    new_user = User(email=user.email, hashed_password=hash_password(user.password))
     await db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
@@ -37,6 +38,9 @@ async def create_subscription(db: AsyncSession, user_id: int, plan_id: int) -> S
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='План подписки не найден')
     exp = datetime.utcnow() + timedelta(days=plan.duration_days)
+    existing = await get_active_subscription(db, user_id)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='У пользователя уже есть активная подписка')
     subscription = Subscription(user_id=user.id, plan_id=plan.id, started_at=datetime.utcnow(), expires_at=exp)
     await db.add(subscription)
     await db.commit()
@@ -47,7 +51,7 @@ async def get_active_subscription(db: AsyncSession, user_id: int) -> Subscriptio
     subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.expires_at > datetime.utcnow()))).scalar_one_or_none()
     return subscription
 
-async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, amount: int) -> Payment:
+async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, amount: float) -> Payment:
     subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id))).scalar_one_or_none()
     if subscription is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
@@ -62,7 +66,7 @@ async def get_payment_by_order_id(db: AsyncSession, order_id: str) -> Payment | 
 
 async def is_webhook_processed(db: AsyncSession, order_id: str) -> bool:
     webhook = (await db.execute(select(ProcessedWebhook).where(ProcessedWebhook.order_id == order_id))).scalar_one_or_none()
-    return False if webhook is None else True
+    return webhook is not None
 
 async def mark_webhook_processed(db: AsyncSession, order_id: str):
     webhook = ProcessedWebhook(order_id=order_id)
@@ -70,4 +74,6 @@ async def mark_webhook_processed(db: AsyncSession, order_id: str):
     await db.commit()
     
 async def get_stats(db: AsyncSession) -> StatsOut:
-    pass
+    total_users = (await db.execute(select(func.count(User.id)))).scalar()
+    active_subs = (await db.execute(select(func.count(Subscription.id)).where(Subscription.expires_at > datetime.utcnow()))).scalar()
+    return StatsOut(total_users=total_users, active_subscriptions=active_subs)
