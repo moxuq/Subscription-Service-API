@@ -37,7 +37,7 @@ class PlanOut(BaseModel):
     id: int
     name: str
     price: float
-    features: list[dict]
+    features: list[dict[str, Any]]
     duration_days: int
     
     model_config = ConfigDict(from_attributes=True)

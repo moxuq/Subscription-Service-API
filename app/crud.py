@@ -23,7 +23,7 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User:
     return new_user
 
 async def get_all_plans(db: AsyncSession) -> list[Plan]:
-    result = await db.execute(select(Plan).options(selectinload(Plan.subscriptions)))
+    result = await db.execute(select(Plan))
     return result.scalars().all()
 
 async def get_plan_by_id(db: AsyncSession, id: int) -> Plan | None:
