@@ -32,7 +32,7 @@ async def login(user: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
 @app.post('/auth/refresh', response_model=Token)
 async def refresh(token: TokenRefresh, db: AsyncSession = Depends(get_db)):
     new_token = await check_refresh_token(token, db)
-    return new_token
+    return {"access_token": new_token, "token_type": "bearer"}
 
 @app.get('/plans', response_model=list[PlanOut])
 async def get_plans(db: AsyncSession = Depends(get_db)):
@@ -63,7 +63,7 @@ async def delete_active_subscription(user: User = Depends(get_current_user), db:
 async def delete_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     await del_subscription(db, user.id, id)
     
-@app.post('/subscriptions/{id}/cabcel', response_model=SubscriptionOut)
+@app.post('/subscriptions/{id}/cancel', response_model=SubscriptionOut)
 async def post_cancel_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     subscription = await cancel_subscription(db, user.id, id)
     return subscription

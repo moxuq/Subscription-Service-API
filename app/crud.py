@@ -48,15 +48,12 @@ async def create_subscription(db: AsyncSession, user_id: int, plan_id: int) -> S
     return subscription
 
 async def get_active_subscription(db: AsyncSession, user_id: int) -> Subscription | None:
-    subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.is_active == True))).scalar_one_or_none()
+    subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.status != 'cancelled', Subscription.status != 'expired', (Subscription.expires_at == None) | (Subscription.expires_at > datetime.now(timezone.utc))))).scalar_one_or_none()
     return subscription
 
 async def get_subscription_by_id(db: AsyncSession, user_id: int, subscription_id: int) -> Subscription | None:
     subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id, Subscription.user_id == user_id)))
-    if subscription.scalar_one_or_none() is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
-    await db.delete(subscription)
-    await db.commit()
+    return subscription.scalar_one_or_none()
 
 async def del_active_subscription(db: AsyncSession, user_id: int) -> None:
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
@@ -114,8 +111,16 @@ async def mark_webhook_processed(db: AsyncSession, order_id: str):
     
 async def get_stats(db: AsyncSession) -> StatsOut:
     total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
-    active_subs = (await db.execute(select(func.count(Subscription.id)).where(Subscription.is_active is True))).scalar() or 0
-    stmt = select(func.coalesce(func.sum((Plan.price / Plan.duration_days) * 30), 0.0)).join(Plan, Subscription.plan_id == Plan.id).where(Subscription.is_active is True)
+    active_subs = (await db.execute(select(func.count(Subscription.id)).where(
+       Subscription.status != 'cancelled',
+       Subscription.status != 'expired',
+       (Subscription.expires_at == None) | (Subscription.expires_at > datetime.now(timezone.utc))
+   ))).scalar() or 0
+    stmt = select(func.coalesce(func.sum((Plan.price / Plan.duration_days) * 30), 0.0)).join(Plan, Subscription.plan_id == Plan.id).where(
+       Subscription.status != 'cancelled',
+       Subscription.status != 'expired',
+       (Subscription.expires_at == None) | (Subscription.expires_at > datetime.now(timezone.utc))
+   )
     mrr = float((await db.execute(stmt)).scalar())
     return StatsOut(mrr=mrr, total_users=total_users, active_subscriptions=active_subs)
 

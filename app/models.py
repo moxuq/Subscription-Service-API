@@ -8,6 +8,13 @@ from enum import Enum
 
 from .database import Base
 
+class SubscriptionStatus(str, Enum):
+    PENDING = 'pending'
+    ACTIVE = 'active'
+    CANCELLED = 'cancelled'
+    EXPIRED = 'expired'
+    PAST_DUE = 'past_due'
+
 class User(Base):
     __tablename__ = 'users'
     
@@ -29,13 +36,6 @@ class Plan(Base):
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     
     subscriptions: Mapped[list['Subscription']] = relationship(back_populates='plan')
-    
-class SubscriptionStatus(str, Enum):
-    PENDING = 'pending'
-    ACTIVE = 'active'
-    CANCELLED = 'cancelled'
-    EXPIRED = 'expired'
-    PAST_DUE = 'past_due'
 
 class Subscription(Base):
     __tablename__ = 'subscriptions'

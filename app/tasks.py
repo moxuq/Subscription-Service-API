@@ -48,10 +48,10 @@ def check_expired_subscriptions():
 def send_expiry_warning():
     with SyncSessionLocal() as db:
         subscriptions = get_expiry_subscriptions(db)
-        emails = [sub.user.email for sub in subscriptions]
-        params = {
-            "from": f"Acme <{RESEND_EMAIL}>",
-            "to": [emails],
-            "subject": "Ваша подписка скоро закончится!"
-        }
-        resend.Emails.send(params)
+        for sub in subscriptions:
+            params = {
+                "from": f"Acme <{RESEND_EMAIL}>",
+                "to": [sub.user.email],
+                "subject": "Ваша подписка скоро истечет!"
+            }
+            resend.Emails.send(params)

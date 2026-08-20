@@ -29,6 +29,7 @@ class UserOut(BaseModel):
 
 class Token(BaseModel):
     access_token: Annotated[str, Field()]
+    refresh_token: str
     token_type: Annotated[Literal['bearer'], Field()]
     
     model_config = ConfigDict(from_attributes=True)
