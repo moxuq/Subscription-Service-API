@@ -3,7 +3,7 @@ from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from .database import get_db
 from .models import User
@@ -35,14 +35,15 @@ def create_refresh_token(email: str) -> str:
     payload = {'sub': email, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    payload = jwt.decode(token, SECRET_KEY, [ALGORITHM])
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверный токен')
     if payload.get('type') != 'access':
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверный тип токена')
     email = payload.get('sub')
-    user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверный токен')
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Пользователь не найден')
     return user

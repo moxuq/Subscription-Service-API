@@ -30,13 +30,20 @@ class Plan(Base):
     
     subscriptions: Mapped[list['Subscription']] = relationship(back_populates='plan')
     
+class SubscriptionStatus(str, Enum):
+    PENDING = 'pending'
+    ACTIVE = 'active'
+    CANCELLED = 'cancelled'
+    EXPIRED = 'expired'
+    PAST_DUE = 'past_due'
+
 class Subscription(Base):
     __tablename__ = 'subscriptions'
     
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'), nullable=False)
-    status: Mapped[Literal['pending', 'active', 'cancelled', 'expired', 'past_due']] = mapped_column(nullable=False, default='pending')
+    status: Mapped[SubscriptionStatus] = mapped_column(nullable=False, default='pending')
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
@@ -47,7 +54,7 @@ class Subscription(Base):
     
     @hybrid_property
     def is_active(self):
-        return self.status != 'cancelled' and (self.expires_at is None or self.expires_at > datetime.now(timezone.utc))
+        return self.status not in (SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED) and (self.expires_at is None or self.expires_at > datetime.now(timezone.utc))
 
 class Payment(Base):
     __tablename__ = 'payments'
