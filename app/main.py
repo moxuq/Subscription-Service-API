@@ -7,12 +7,14 @@ from .crud import create_user, get_user_by_email, get_all_plans, get_plan_id, cr
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
 from .models import User
+from .tasks import send_welcome_email
 
 app = FastAPI(title='Subscription Service API')
 
 @app.post('/auth/register', response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
     new_user = await create_user(db, user)
+    send_welcome_email.delay(new_user.email)
     return UserOut.model_validate(new_user)
 
 @app.post('/auth/login', response_model=Token)

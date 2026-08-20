@@ -120,10 +120,10 @@ async def get_stats(db: AsyncSession) -> StatsOut:
     return StatsOut(mrr=mrr, total_users=total_users, active_subscriptions=active_subs)
 
 def active_to_expired_subscriptions(db: Session) -> None:
-    subscriptions = db.execute(update(Subscription).where(Subscription.status == 'active', Subscription.expires_at < datetime.now(timezone.utc)))
+    subscriptions = db.execute(update(Subscription).where(Subscription.status == 'active', Subscription.expires_at < datetime.now(timezone.utc)).values(status='expired'))
     db.commit()
-    db.refresh(subscriptions)
     
 def get_expiry_subscriptions(db: Session) -> list[Subscription]:
-    subscriptions = db.execute(select(Subscription).where(Subscription.is_active == True, Subscription.expires_at - datetime.now(timezone.utc) <= 3).options(selectinload(Subscription.user))).scalars().all()
+    threenow = datetime.now(timezone.utc) + timedelta(days=3)
+    subscriptions = db.execute(select(Subscription).where(Subscription.status == 'active', Subscription.expires_at < threenow, Subscription.expires_at > datetime.now(timezone.utc)).options(selectinload(Subscription.user))).scalars().all()
     return subscriptions
