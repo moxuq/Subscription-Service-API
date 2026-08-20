@@ -14,7 +14,11 @@ class UserCreate(BaseModel):
         return value
     
     model_config = ConfigDict(extra='forbid')
-    
+
+class UserLogin(BaseModel):
+    email: Annotated[EmailStr, Field()]
+    password: Annotated[str, Field(min_length=6, max_length=72)]
+
 class UserOut(BaseModel):
     id: int
     email: str
@@ -28,7 +32,9 @@ class Token(BaseModel):
     refresh_token: Annotated[str, Field()]
     token_type: Annotated[Literal['bearer'], Field()]
     
-class RefreshRequest(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+class TokenRefresh(BaseModel):
     refresh_token: str
 
     model_config = ConfigDict(extra='forbid')
@@ -78,4 +84,6 @@ class StatsOut(BaseModel):
     mrr: float
     active_subscriptions: int
     total_users: int
+    
+    model_config = ConfigDict(from_attributes=True)
     

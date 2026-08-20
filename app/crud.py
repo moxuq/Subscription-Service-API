@@ -48,7 +48,7 @@ async def create_subscription(db: AsyncSession, user_id: int, plan_id: int) -> S
     return subscription
 
 async def get_active_subscription(db: AsyncSession, user_id: int) -> Subscription | None:
-    subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.is_active is True))).scalar_one_or_none()
+    subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.is_active == True))).scalar_one_or_none()
     return subscription
 
 async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, amount: float) -> Payment:

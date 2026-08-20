@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from .database import get_db
@@ -26,12 +26,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 def create_access_token(email: str) -> str:
-    exp = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_MINUTES)
+    exp = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES)
     payload = {'sub': email, 'type': 'access', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
 def create_refresh_token(user: OAuth2PasswordRequestForm) -> str:
-    exp = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_DAYS)
+    exp = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
     payload = {'sub': user.username, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
