@@ -2,6 +2,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, DateTime, func, Numeric, Integer, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
+from typing import Literal
 
 from .database import Base
 
@@ -33,7 +34,7 @@ class Subscription(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default='pending')
+    status: Mapped[Literal['pending', 'active', 'expired']] = mapped_column(String(20), nullable=False, default='pending')
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
@@ -49,7 +50,7 @@ class Payment(Base):
     subscription_id: Mapped[int] = mapped_column(ForeignKey('subscriptions.id'), nullable=False)
     order_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     amount: Mapped[float] = mapped_column(Numeric(10,2), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default='pending')
+    status: Mapped[Literal['pending', 'paid', 'failed']] = mapped_column(String(20), nullable=False, default='pending')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     
     subscription: Mapped['Subscription'] = relationship(back_populates='payment')

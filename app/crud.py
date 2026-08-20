@@ -74,6 +74,8 @@ async def mark_webhook_processed(db: AsyncSession, order_id: str):
     await db.commit()
     
 async def get_stats(db: AsyncSession) -> StatsOut:
-    total_users = (await db.execute(select(func.count(User.id)))).scalar()
-    active_subs = (await db.execute(select(func.count(Subscription.id)).where(Subscription.expires_at > datetime.utcnow()))).scalar()
-    return StatsOut(total_users=total_users, active_subscriptions=active_subs)
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    active_subs = (await db.execute(select(func.count(Subscription.id)).where(Subscription.expires_at > datetime.utcnow()))).scalar() or 0
+    stmt = select(func.coalesce(func.sum((Plan.price / Plan.duration_days) * 30), 0.0)).join(Plan, Subscription.plan_id == Plan.id).where(Subscription.expires_at > datetime.utcnow())
+    mrr = float((await db.execute(stmt)).scalar())
+    return StatsOut(mrr=mrr, total_users=total_users, active_subscriptions=active_subs)
