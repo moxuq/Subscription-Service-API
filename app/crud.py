@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .auth import hash_password
 from .models import User, Plan, Subscription, Payment, ProcessedWebhook
@@ -37,11 +37,11 @@ async def create_subscription(db: AsyncSession, user_id: int, plan_id: int) -> S
     plan = (await db.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='План подписки не найден')
-    exp = datetime.utcnow() + timedelta(days=plan.duration_days)
+    exp = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
     existing = await get_active_subscription(db, user_id)
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='У пользователя уже есть активная подписка')
-    subscription = Subscription(user_id=user.id, plan_id=plan.id, started_at=datetime.utcnow(), expires_at=exp)
+    subscription = Subscription(user_id=user.id, plan_id=plan.id, started_at=datetime.now(timezone.utc), expires_at=exp)
     await db.add(subscription)
     await db.commit()
     await db.refresh(subscription)
