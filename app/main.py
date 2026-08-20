@@ -2,10 +2,11 @@ from fastapi import FastAPI, status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh
-from .crud import create_user, get_user_by_email, get_all_plans, get_plan_by_id
+from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut
+from .crud import create_user, get_user_by_email, get_all_plans, get_plan_by_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription
 from .database import get_db
-from .auth import create_access_token, verify_password, create_refresh_token
+from .auth import create_access_token, verify_password, create_refresh_token, get_current_user
+from .models import User
 
 app = FastAPI(title='Subscription Service API')
 
@@ -45,3 +46,22 @@ async def get_plans(db: AsyncSession = Depends(get_db)):
 async def get_plan_by_id(id: int, db: AsyncSession = Depends(get_db)):
     plan = await get_plan_by_id(id, db)
     return plan
+
+
+@app.post('/subscriptions', response_model=SubscriptionOut)
+async def post_subscription(subscription: SubscriptionCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    new_subscription = await create_subscription(db, user.id, subscription.plan_id)
+    return new_subscription
+
+@app.get('/subscriptions/active', response_class=SubscriptionOut)
+async def get_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    subscription = get_active_subscription(db, user.id)
+    return subscription
+
+@app.delete('/subscriptions', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_active_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await del_active_subscription(db, user.id)
+    
+@app.delete('/subscription/{id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await del_subscription(db, user.id, id)

@@ -50,6 +50,33 @@ async def get_active_subscription(db: AsyncSession, user_id: int) -> Subscriptio
     subscription = (await db.execute(select(Subscription).where(Subscription.user_id==user_id, Subscription.is_active == True))).scalar_one_or_none()
     return subscription
 
+async def get_subscription_by_id(db: AsyncSession, user_id: int, subscription_id: int) -> Subscription | None:
+    subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id, Subscription.user_id == user_id)))
+    if subscription.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
+    await db.delete(subscription)
+    await db.commit()
+
+async def del_active_subscription(db: AsyncSession, user_id: int) -> None:
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
+    subscription = await get_active_subscription(db, user_id)
+    if subscription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных подписок')
+    await db.delete(subscription)
+    await db.commit()
+
+async def del_subscription(db: AsyncSession, user_id: int, subscription_id: int):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
+    subscription = await get_subscription_by_id(db, user_id, subscription_id)
+    if subscription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных подписок')
+    await db.delete(subscription)
+    await db.commit()
+
 async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, amount: float) -> Payment:
     subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id))).scalar_one_or_none()
     if subscription is None:
