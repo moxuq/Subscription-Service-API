@@ -3,6 +3,7 @@ from sqlalchemy import String, DateTime, func, Numeric, Integer, Boolean, Foreig
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 from typing import Literal
+from enum import Enum
 
 from .database import Base
 
@@ -34,7 +35,7 @@ class Subscription(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), nullable=False, index=True)
     plan_id: Mapped[int] = mapped_column(ForeignKey('plans.id'), nullable=False)
-    status: Mapped[Literal['pending', 'active', 'expired']] = mapped_column(String(20), nullable=False, default='pending')
+    status: Mapped[Literal['pending', 'active', 'cancelled', 'expired', 'past_due']] = mapped_column(String(20), nullable=False, default='pending')
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
@@ -42,6 +43,10 @@ class Subscription(Base):
     user: Mapped['User'] = relationship(back_populates='subscription')
     plan: Mapped['Plan'] = relationship(back_populates='subscription')
     payment: Mapped['Payment'] = relationship(back_populates='subscription')
+    
+    @property
+    def is_active(self):
+        return self.status != SubscriptionStatus.CANCELLED and (self.expires_at is None or self.expires_at > datetime.utcnow())
 
 class Payment(Base):
     __tablename__ = 'payments'
@@ -50,7 +55,7 @@ class Payment(Base):
     subscription_id: Mapped[int] = mapped_column(ForeignKey('subscriptions.id'), nullable=False)
     order_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     amount: Mapped[float] = mapped_column(Numeric(10,2), nullable=False)
-    status: Mapped[Literal['pending', 'paid', 'failed']] = mapped_column(String(20), nullable=False, default='pending')
+    status: Mapped[Literal['pending', 'cancelled', 'paid', 'past_due']] = mapped_column(String(20), nullable=False, default='pending')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     
     subscription: Mapped['Subscription'] = relationship(back_populates='payment')
@@ -61,3 +66,9 @@ class ProcessedWebhook(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     processed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    
+class SubscriptionStatus(str, Enum):
+    ACTIVE = 'active'
+    CANCELLED = 'cancelled'
+    EXPIRED = 'expired'
+    PAST_DUE = 'past_due'
