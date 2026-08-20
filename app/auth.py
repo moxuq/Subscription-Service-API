@@ -30,9 +30,9 @@ def create_access_token(email: str) -> str:
     payload = {'sub': email, 'type': 'access', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
-def create_refresh_token(user: OAuth2PasswordRequestForm) -> str:
+def create_refresh_token(email: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
-    payload = {'sub': user.username, 'type': 'refresh', 'exp': exp}
+    payload = {'sub': email, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:

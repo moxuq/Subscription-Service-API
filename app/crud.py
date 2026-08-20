@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
 
