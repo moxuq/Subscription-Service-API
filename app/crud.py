@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
+from sqlalchemy.orm import Session, selectinload
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
 
@@ -117,3 +118,12 @@ async def get_stats(db: AsyncSession) -> StatsOut:
     stmt = select(func.coalesce(func.sum((Plan.price / Plan.duration_days) * 30), 0.0)).join(Plan, Subscription.plan_id == Plan.id).where(Subscription.is_active is True)
     mrr = float((await db.execute(stmt)).scalar())
     return StatsOut(mrr=mrr, total_users=total_users, active_subscriptions=active_subs)
+
+def active_to_expired_subscriptions(db: Session) -> None:
+    subscriptions = db.execute(update(Subscription).where(Subscription.status == 'active', Subscription.expires_at < datetime.now(timezone.utc)))
+    db.commit()
+    db.refresh(subscriptions)
+    
+def get_expiry_subscriptions(db: Session) -> list[Subscription]:
+    subscriptions = db.execute(select(Subscription).where(Subscription.is_active == True, Subscription.expires_at - datetime.now(timezone.utc) <= 3).options(selectinload(Subscription.user))).scalars().all()
+    return subscriptions
