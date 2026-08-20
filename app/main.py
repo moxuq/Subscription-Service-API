@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut
-from .crud import create_user, get_user_by_email, get_all_plans, get_plan_by_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription
+from .crud import create_user, get_user_by_email, get_all_plans, get_plan_by_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription, cancel_subscription
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user
 from .models import User
@@ -65,3 +65,8 @@ async def delete_active_subscription(user: User = Depends(get_current_user), db:
 @app.delete('/subscription/{id}', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     await del_subscription(db, user.id, id)
+    
+@app.post('/subscriptions/{id}/cabcel', response_model=SubscriptionOut)
+async def post_cancel_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    subscription = await cancel_subscription(db, user.id, id)
+    return subscription

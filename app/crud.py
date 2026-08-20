@@ -73,9 +73,21 @@ async def del_subscription(db: AsyncSession, user_id: int, subscription_id: int)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
     subscription = await get_subscription_by_id(db, user_id, subscription_id)
     if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных подписок')
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Нет подписки с id: {subscription_id}')
     await db.delete(subscription)
     await db.commit()
+    
+async def cancel_subscription(db: AsyncSession, user_id: int, id: int) -> Subscription:
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
+    subscription = await get_active_subscription(db, user_id)
+    if subscription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активной подписки')
+    subscription.status = 'cancelled'
+    await db.commit()
+    await db.refresh(subscription)
+    return subscription
 
 async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, amount: float) -> Payment:
     subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id))).scalar_one_or_none()
