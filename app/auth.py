@@ -16,6 +16,8 @@ pwd_context = CryptContext(schemes=['argon2'])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/login')
 ALGORITHM = os.getenv('ALGORITHM', 'fallback')
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback')
+if ALGORITHM == 'fallback' or SECRET_KEY == 'fallback':
+    raise ValueError("Алгоритм или секретный ключ не установленны")
 REFRESH_TOKEN_DAYS = int(os.getenv('REFRESH_TOKEN_DAYS'))
 ACCESS_TOKEN_MINUTES = int(os.getenv('ACCESS_TOKEN_MINUTES'))
 
@@ -35,7 +37,19 @@ def create_refresh_token(email: str) -> str:
     payload = {'sub': email, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+async def check_refresh_token(token: str, db: AsyncSession) -> bool:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверный токен')
+    if payload.get('type') != 'refresh':
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверный тип токена')
+    user = (await db.execute(select(User).where(User.email == payload.get('sub')))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
+    return create_access_token(user.email)
+
+async def get_current_user(db: AsyncSession, token: str = Depends(oauth2_scheme)) -> User:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:

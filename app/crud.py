@@ -25,7 +25,7 @@ async def get_all_plans(db: AsyncSession) -> list[Plan]:
     result = await db.execute(select(Plan))
     return result.scalars().all()
 
-async def get_plan_by_id(db: AsyncSession, id: int) -> Plan | None:
+async def get_plan_id(db: AsyncSession, id: int) -> Plan | None:
     result = await db.execute(select(Plan).where(Plan.id == id))
     return result.scalar_one_or_none()
 
