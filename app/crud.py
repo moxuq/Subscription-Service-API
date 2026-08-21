@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
 
 from .auth import hash_password
-from .models import User, Plan, Subscription, Payment, ProcessedWebhook
+from .models import User, Plan, Subscription, Payment, ProcessedWebhook, SubscriptionStatus
 from .schemas import UserCreate, StatsOut
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -125,10 +125,10 @@ async def get_stats(db: AsyncSession) -> StatsOut:
     return StatsOut(mrr=mrr, total_users=total_users, active_subscriptions=active_subs)
 
 def active_to_expired_subscriptions(db: Session) -> None:
-    subscriptions = db.execute(update(Subscription).where(Subscription.status == 'active', Subscription.expires_at < datetime.now(timezone.utc)).values(status='expired'))
+    db.execute(update(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE, Subscription.expires_at < datetime.now(timezone.utc)).values(status='expired'))
     db.commit()
     
 def get_expiry_subscriptions(db: Session) -> list[Subscription]:
     threenow = datetime.now(timezone.utc) + timedelta(days=3)
-    subscriptions = db.execute(select(Subscription).where(Subscription.status == 'active', Subscription.expires_at < threenow, Subscription.expires_at > datetime.now(timezone.utc)).options(selectinload(Subscription.user))).scalars().all()
+    subscriptions = db.execute(select(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE, Subscription.expires_at < threenow, Subscription.expires_at > datetime.now(timezone.utc)).options(selectinload(Subscription.user))).scalars().all()
     return subscriptions
