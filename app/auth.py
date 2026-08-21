@@ -37,7 +37,7 @@ def create_refresh_token(email: str) -> str:
     payload = {'sub': email, 'type': 'refresh', 'exp': exp}
     return jwt.encode(payload, SECRET_KEY, ALGORITHM)
 
-async def check_refresh_token(token: str, db: AsyncSession) -> bool:
+async def check_refresh_token(token: str, db: AsyncSession) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:

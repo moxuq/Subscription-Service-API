@@ -31,7 +31,7 @@ async def login(user: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
 
 @app.post('/auth/refresh', response_model=Token)
 async def refresh(token: TokenRefresh, db: AsyncSession = Depends(get_db)):
-    new_token = await check_refresh_token(token, db)
+    new_token = await check_refresh_token(token.refresh_token, db)
     return new_token
 
 @app.get('/plans', response_model=list[PlanOut])
