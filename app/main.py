@@ -2,8 +2,8 @@ from fastapi import FastAPI, status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut
-from .crud import create_user, get_user_by_email, get_all_plans, get_plan_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription, cancel_subscription
+from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
+from .crud import create_user, get_user_by_email, get_all_plans, get_plan_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription, cancel_subscription, mark_webhook_processed, is_webhook_processed
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
 from .models import User
@@ -67,3 +67,9 @@ async def delete_subscription(id: int, user: User = Depends(get_current_user), d
 async def post_cancel_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     subscription = await cancel_subscription(db, user.id, id)
     return subscription
+
+@app.post('/payments/webhook')
+async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
+    fwebhook = await is_webhook_processed(db, webhook.order_id)
+    if fwebhook is not None:
+        return {"status": "ok"}

@@ -47,7 +47,11 @@ async def check_refresh_token(token: str, db: AsyncSession) -> bool:
     user = (await db.execute(select(User).where(User.email == payload.get('sub')))).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Пользователь не найден')
-    return create_access_token(user.email)
+    return {
+        "access_token": create_access_token(user.email),
+        "refresh_token": create_refresh_token(user.email),
+        "token_type": "bearer"
+    }
 
 async def get_current_user(db: AsyncSession, token: str = Depends(oauth2_scheme)) -> User:
     try:
