@@ -99,16 +99,17 @@ async def post_cancel_subscription(id: int, user: User = Depends(get_current_use
 
 @app.post('/payments/webhook')
 async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
+    if not hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest() == webhook.sign:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid signature')
     processed_is = await is_webhook_processed(db, webhook.order_id)
     if processed_is == True:
         return {"status": "ok"}
     try:
-        if hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest() == webhook.sign:
-            await mark_webhook_processed(db, webhook.order_id)
-            await payment_status_to_paid(db, webhook.order_id)
-            payment = await get_payment_by_order_id(db, webhook.order_id)
-            await subscription_status_to_active(db, payment)
-            send_payment_confirmation.delay(db, payment.amount)
+        await mark_webhook_processed(db, webhook.order_id)
+        await payment_status_to_paid(db, webhook.order_id)
+        payment = await get_payment_by_order_id(db, webhook.order_id)
+        await subscription_status_to_active(db, payment)
+        send_payment_confirmation.delay(db, payment.amount)
     except IntegrityError:
         pass
     return {"status": "ok"}
