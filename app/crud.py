@@ -55,6 +55,15 @@ async def get_subscription_by_id(db: AsyncSession, user_id: int, subscription_id
     subscription = (await db.execute(select(Subscription).where(Subscription.id == subscription_id, Subscription.user_id == user_id)))
     return subscription.scalar_one_or_none()
 
+async def subscription_status_to_active(db: AsyncSession, payment: Payment) -> Subscription | None:
+    subscription = (await db.execute(select(Subscription).where(Subscription.id == payment.subscription_id))).scalar_one_or_none()
+    if subscription is None:
+        return None
+    subscription.status = 'active'
+    await db.commit()
+    await db.refresh(subscription)
+    return subscription
+
 async def del_active_subscription(db: AsyncSession, user_id: int) -> None:
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None:

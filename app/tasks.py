@@ -55,3 +55,12 @@ def send_expiry_warning():
                 "subject": "Ваша подписка скоро истечет!"
             }
             resend.Emails.send(params)
+            
+@celery_app.task
+def send_payment_confirmation(email: str, amount: int):
+    params = {
+        "from": f"Acme <{RESEND_EMAIL}>",
+        "to": [email],
+        "subject": f"Оплата прошла: {amount}"
+    }
+    resend.Emails.send(params)

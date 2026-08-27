@@ -3,6 +3,10 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from sqlalchemy.exc import IntegrityError
+from dotenv import load_dotenv
+import hmac
+import hashlib
+import os
 
 from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
 from .crud import (create_user, 
@@ -16,12 +20,18 @@ from .crud import (create_user,
                    cancel_subscription, 
                    mark_webhook_processed, 
                    is_webhook_processed, 
-                   payment_status_to_paid)
+                   payment_status_to_paid,
+                   subscription_status_to_active,
+                   get_payment_by_order_id)
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
 from .models import User, ProcessedWebhook
-from .tasks import send_welcome_email
+from .tasks import send_welcome_email, send_payment_confirmation
 from .redis_client import get_redis
+
+load_dotenv()
+
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 @asynccontextmanager
 async def lifespan():
@@ -89,12 +99,16 @@ async def post_cancel_subscription(id: int, user: User = Depends(get_current_use
 
 @app.post('/payments/webhook')
 async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
-    processed_is = await is_webhook_processed(db, WebhookPayload.order_id)
+    processed_is = await is_webhook_processed(db, webhook.order_id)
     if processed_is == True:
         return {"status": "ok"}
     try:
-        await mark_webhook_processed(db, WebhookPayload.order_id)
-        await payment_status_to_paid(db, WebhookPayload.order_id)
+        if hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest() == webhook.sign:
+            await mark_webhook_processed(db, webhook.order_id)
+            await payment_status_to_paid(db, webhook.order_id)
+            payment = await get_payment_by_order_id(db, webhook.order_id)
+            await subscription_status_to_active(db, payment)
+            send_payment_confirmation.delay(db, payment.amount)
     except IntegrityError:
         pass
-    {"status": "ok"}
+    return {"status": "ok"}
