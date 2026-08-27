@@ -100,6 +100,13 @@ async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, 
 async def get_payment_by_order_id(db: AsyncSession, order_id: str) -> Payment | None:
     return (await db.execute(select(Payment).where(Payment.order_id == order_id))).scalar_one_or_none()
 
+async def payment_status_to_paid(db: AsyncSession, order_id: str) -> Payment | None:
+    payment = (await db.execute(select(Payment).where(Payment.order_id == order_id))).scalar_one_or_none()
+    payment.status = 'paid'
+    await db.commit()
+    await db.refresh(payment)
+    return payment
+
 async def is_webhook_processed(db: AsyncSession, order_id: str) -> bool:
     webhook = (await db.execute(select(ProcessedWebhook).where(ProcessedWebhook.order_id == order_id))).scalar_one_or_none()
     return webhook is not None

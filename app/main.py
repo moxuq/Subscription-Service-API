@@ -1,15 +1,34 @@
 from fastapi import FastAPI, status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from contextlib import asynccontextmanager
+from sqlalchemy.exc import IntegrityError
 
 from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
-from .crud import create_user, get_user_by_email, get_all_plans, get_plan_id, create_subscription, get_active_subscription, del_active_subscription, del_subscription, cancel_subscription, mark_webhook_processed, is_webhook_processed
+from .crud import (create_user, 
+                   get_user_by_email, 
+                   get_all_plans, 
+                   get_plan_id, 
+                   create_subscription, 
+                   get_active_subscription, 
+                   del_active_subscription, 
+                   del_subscription, 
+                   cancel_subscription, 
+                   mark_webhook_processed, 
+                   is_webhook_processed, 
+                   payment_status_to_paid)
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
-from .models import User
+from .models import User, ProcessedWebhook
 from .tasks import send_welcome_email
+from .redis_client import get_redis
 
-app = FastAPI(title='Subscription Service API')
+@asynccontextmanager
+async def lifespan():
+    yield
+    await get_redis().aclose()
+
+app = FastAPI(title='Subscription Service API', lifespan=lifespan)
 
 @app.post('/auth/register', response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -70,6 +89,12 @@ async def post_cancel_subscription(id: int, user: User = Depends(get_current_use
 
 @app.post('/payments/webhook')
 async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
-    fwebhook = await is_webhook_processed(db, webhook.order_id)
-    if fwebhook is not None:
+    processed_is = await is_webhook_processed(db, WebhookPayload.order_id)
+    if processed_is == True:
         return {"status": "ok"}
+    try:
+        await mark_webhook_processed(db, WebhookPayload.order_id)
+        await payment_status_to_paid(db, WebhookPayload.order_id)
+    except IntegrityError:
+        pass
+    {"status": "ok"}
