@@ -22,7 +22,8 @@ from .crud import (create_user,
                    is_webhook_processed, 
                    payment_status_to_paid,
                    subscription_status_to_active,
-                   get_payment_by_order_id)
+                   get_payment_by_order_id,
+                   get_user_by_id)
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
 from .models import User, ProcessedWebhook
@@ -99,8 +100,9 @@ async def post_cancel_subscription(id: int, user: User = Depends(get_current_use
 
 @app.post('/payments/webhook')
 async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
-    if not hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest() == webhook.sign:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid signature')
+    expected_sign = hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sign, webhook.sign):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверная сигнатура')
     processed_is = await is_webhook_processed(db, webhook.order_id)
     if processed_is == True:
         return {"status": "ok"}
@@ -108,8 +110,13 @@ async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_d
         await mark_webhook_processed(db, webhook.order_id)
         await payment_status_to_paid(db, webhook.order_id)
         payment = await get_payment_by_order_id(db, webhook.order_id)
-        await subscription_status_to_active(db, payment)
-        send_payment_confirmation.delay(db, payment.amount)
+        if payment is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Платеж не найден')
+        subscription = await subscription_status_to_active(db, payment)
+        if subscription is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
+        user = await get_user_by_id(db, subscription.user_id)
+        send_payment_confirmation.delay(user.email, float(payment.amount))
     except IntegrityError:
         pass
     return {"status": "ok"}

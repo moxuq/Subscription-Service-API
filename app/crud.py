@@ -148,3 +148,7 @@ def get_expiry_subscriptions(db: Session) -> list[Subscription]:
     threenow = datetime.now(timezone.utc) + timedelta(days=3)
     subscriptions = db.execute(select(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE, Subscription.expires_at < threenow, Subscription.expires_at > datetime.now(timezone.utc)).options(selectinload(Subscription.user))).scalars().all()
     return subscriptions
+
+async def get_user_by_id(db: AsyncSession, id: int) -> User | None:
+    user = (await db.execute(select(User).where(User.id == id))).scalar_one_or_none()
+    return user
