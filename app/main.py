@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from sqlalchemy.exc import IntegrityError
+from redis.asyncio import Redis
 from dotenv import load_dotenv
 import hmac
 import hashlib
@@ -28,7 +29,7 @@ from .crud import (create_user,
                    get_stats)
 from .database import get_db
 from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token, get_current_admin
-from .models import User, ProcessedWebhook
+from .models import User
 from .tasks import send_welcome_email, send_payment_confirmation
 from .redis_client import get_redis
 
@@ -67,8 +68,13 @@ async def refresh(token: TokenRefresh, db: AsyncSession = Depends(get_db)):
     return new_token
 
 @app.get('/plans', response_model=list[PlanOut])
-async def get_plans(db: AsyncSession = Depends(get_db)):
+async def get_plans(db: AsyncSession = Depends(get_db), r_client: Redis = Depends(get_redis)):
+    r_plans = await r_client.get("plans:all")
+    if r_plans is not None:
+        return r_plans
     plans = await get_all_plans(db)
+    py_plans = PlanOut.model_validate(plans)
+    await r_client.setex("plans:all", 3600, py_plans.model_dump_json())
     return plans
 
 @app.get('/plans/{id}', response_model=PlanOut)
@@ -83,8 +89,13 @@ async def post_subscription(subscription: SubscriptionCreate, user: User = Depen
     return new_subscription
 
 @app.get('/subscriptions/active', response_model=SubscriptionOut)
-async def get_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db), r_client: Redis = Depends(get_redis)):
+    r_subscription = await r_client.get(f"sub:{user.id}")
+    if r_subscription is not None:
+        return r_subscription
     subscription = await get_active_subscription(db, user.id)
+    py_subscriptions = SubscriptionOut.model_validate(subscription)
+    await r_client.setex(f"sub:{user.id}", 300, py_subscriptions.model_dump_json())
     return subscription
 
 @app.delete('/subscriptions', status_code=status.HTTP_204_NO_CONTENT)
@@ -96,7 +107,8 @@ async def delete_subscription(id: int, user: User = Depends(get_current_user), d
     await del_subscription(db, user.id, id)
     
 @app.post('/subscriptions/{id}/cancel', response_model=SubscriptionOut)
-async def post_cancel_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def post_cancel_subscription(id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db), r_client: Redis = Depends(get_redis)):
+    await r_client.delete(f"sub:{user.id}")
     subscription = await cancel_subscription(db, user.id, id)
     return subscription
 
