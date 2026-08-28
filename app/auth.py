@@ -53,7 +53,7 @@ async def check_refresh_token(token: str, db: AsyncSession) -> dict:
         "token_type": "bearer"
     }
 
-async def get_current_user(db: AsyncSession, token: str = Depends(oauth2_scheme)) -> User:
+async def get_current_user(db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:

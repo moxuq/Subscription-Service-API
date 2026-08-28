@@ -39,7 +39,7 @@ load_dotenv()
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(app: FastAPI):
     yield
     await get_redis().aclose()
 

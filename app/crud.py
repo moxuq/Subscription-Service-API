@@ -17,7 +17,7 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User:
     if db_user is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Пользователь с таким email уже существует')
     new_user = User(email=user.email, hashed_password=hash_password(user.password))
-    await db.add(new_user)
+    db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
     return new_user
@@ -42,7 +42,7 @@ async def create_subscription(db: AsyncSession, user_id: int, plan_id: int) -> S
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='У пользователя уже есть активная подписка')
     subscription = Subscription(user_id=user.id, plan_id=plan.id, started_at=datetime.now(timezone.utc), expires_at=exp)
-    await db.add(subscription)
+    db.add(subscription)
     await db.commit()
     await db.refresh(subscription)
     return subscription
@@ -71,7 +71,7 @@ async def del_active_subscription(db: AsyncSession, user_id: int) -> None:
     subscription = await get_active_subscription(db, user_id)
     if subscription is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Нет активных подписок')
-    await db.delete(subscription)
+    db.delete(subscription)
     await db.commit()
 
 async def del_subscription(db: AsyncSession, user_id: int, subscription_id: int):
@@ -81,7 +81,7 @@ async def del_subscription(db: AsyncSession, user_id: int, subscription_id: int)
     subscription = await get_subscription_by_id(db, user_id, subscription_id)
     if subscription is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Нет подписки с id: {subscription_id}')
-    await db.delete(subscription)
+    db.delete(subscription)
     await db.commit()
     
 async def cancel_subscription(db: AsyncSession, user_id: int, id: int) -> Subscription:
@@ -101,7 +101,7 @@ async def create_payment(db: AsyncSession, subscription_id: int, order_id: str, 
     if subscription is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
     payment = Payment(subscription_id=subscription_id, order_id=order_id, amount=amount)
-    await db.add(payment)
+    db.add(payment)
     await db.commit()
     await db.refresh(payment)
     return payment
@@ -122,7 +122,7 @@ async def is_webhook_processed(db: AsyncSession, order_id: str) -> bool:
 
 async def mark_webhook_processed(db: AsyncSession, order_id: str):
     webhook = ProcessedWebhook(order_id=order_id)
-    await db.add(webhook)
+    db.add(webhook)
     await db.commit()
     
 async def get_stats(db: AsyncSession) -> StatsOut:
