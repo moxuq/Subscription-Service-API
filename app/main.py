@@ -102,8 +102,6 @@ async def post_cancel_subscription(id: int, user: User = Depends(get_current_use
 
 @app.post('/payments/webhook')
 async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_db)):
-    if not hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest() == webhook.sign:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid signature')
     expected_sign = hmac.new(SECRET_KEY.encode(), f"{webhook.order_id}{webhook.status}{webhook.payment}".encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected_sign, webhook.sign):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Неверная сигнатура')
