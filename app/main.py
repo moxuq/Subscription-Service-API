@@ -74,6 +74,8 @@ async def get_plans(db: AsyncSession = Depends(get_db), r_client: Redis = Depend
     if r_plans:
         return json.loads(r_plans)
     plans = await get_all_plans(db)
+    if plans is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Планы подписок не найдены')
     py_plans = [PlanOut.model_validate(p).model_dump() for p in plans]
     await r_client.setex("plans:all", 3600, json.dumps(py_plans))
     return plans
@@ -81,6 +83,8 @@ async def get_plans(db: AsyncSession = Depends(get_db), r_client: Redis = Depend
 @app.get('/plans/{id}', response_model=PlanOut)
 async def get_plan_by_id(id: int, db: AsyncSession = Depends(get_db)):
     plan = await get_plan_id(db, id)
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='План подписки не найден')
     return plan
 
 
