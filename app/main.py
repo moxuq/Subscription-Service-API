@@ -8,7 +8,7 @@ import hmac
 import hashlib
 import os
 
-from .schemas import StatsOut, UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
+from .schemas import SubscriptionAdminOut, StatsOut, UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
 from .crud import (create_user, 
                    get_user_by_email, 
                    get_all_plans, 
@@ -125,7 +125,7 @@ async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_d
         pass
     return {"status": "ok"}
 
-@app.get('/admin/subscriptions', response_model=list[SubscriptionOut], status_code=status.HTTP_200_OK)
+@app.get('/admin/subscriptions', response_model=list[SubscriptionAdminOut], status_code=status.HTTP_200_OK)
 async def admin_get_subscriptions(admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
     subscriptions = await admin_get_subs(db)
     return subscriptions
