@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, Depends, HTTPException
+from fastapi import FastAPI, status, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
@@ -84,7 +84,16 @@ async def get_plan_by_id(id: int, db: AsyncSession = Depends(get_db)):
     return plan
 
 
-@app.post('/subscriptions', response_model=SubscriptionOut)
+async def rate_limit_sub(request: Request, r_client: Redis = Depends(get_redis)):
+    ip = request.client.host
+    key = f"rate_limit:sub:{ip}"
+    current = await r_client.incr(key)
+    if current == 1:
+        await r_client.expire(key, 60)
+    if current > 5:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Слишком много запросов, повторите попытку позже")
+
+@app.post('/subscriptions', response_model=SubscriptionOut, dependencies=[Depends(rate_limit_sub)])
 async def post_subscription(subscription: SubscriptionCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     new_subscription = await create_subscription(db, user.id, subscription.plan_id)
     return new_subscription
