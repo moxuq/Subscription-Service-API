@@ -8,7 +8,7 @@ import hmac
 import hashlib
 import os
 
-from .schemas import UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
+from .schemas import StatsOut, UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
 from .crud import (create_user, 
                    get_user_by_email, 
                    get_all_plans, 
@@ -23,9 +23,11 @@ from .crud import (create_user,
                    payment_status_to_paid,
                    subscription_status_to_active,
                    get_payment_by_order_id,
-                   get_user_by_id)
+                   get_user_by_id,
+                   admin_get_subs,
+                   get_stats)
 from .database import get_db
-from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token
+from .auth import create_access_token, verify_password, create_refresh_token, get_current_user, check_refresh_token, get_current_admin
 from .models import User, ProcessedWebhook
 from .tasks import send_welcome_email, send_payment_confirmation
 from .redis_client import get_redis
@@ -122,3 +124,13 @@ async def post_webhook(webhook: WebhookPayload, db: AsyncSession = Depends(get_d
     except IntegrityError:
         pass
     return {"status": "ok"}
+
+@app.get('/admin/subscriptions', response_model=list[SubscriptionOut], status_code=status.HTTP_200_OK)
+async def admin_get_subscriptions(admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    subscriptions = await admin_get_subs(db)
+    return subscriptions
+
+@app.get('/admin/stats', response_model=StatsOut, status_code=status.HTTP_200_OK)
+async def admin_get_stats(db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)):
+    stats = await get_stats(db)
+    return stats

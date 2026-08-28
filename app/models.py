@@ -50,7 +50,7 @@ class Subscription(Base):
     
     user: Mapped['User'] = relationship(back_populates='subscriptions')
     plan: Mapped['Plan'] = relationship(back_populates='subscriptions')
-    payment: Mapped[list['Payment']] = relationship(back_populates='subscription')
+    payments: Mapped[list['Payment']] = relationship(back_populates='subscription')
     
     @hybrid_property
     def is_active(self):
@@ -66,7 +66,7 @@ class Payment(Base):
     status: Mapped[Literal['pending', 'paid', 'failed']] = mapped_column(String(20), nullable=False, default='pending')
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     
-    subscription: Mapped['Subscription'] = relationship(back_populates='payment')
+    subscription: Mapped['Subscription'] = relationship(back_populates='payments')
     
 class ProcessedWebhook(Base):
     __tablename__ = 'processedwebhooks'

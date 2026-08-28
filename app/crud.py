@@ -152,3 +152,7 @@ def get_expiry_subscriptions(db: Session) -> list[Subscription]:
 async def get_user_by_id(db: AsyncSession, id: int) -> User | None:
     user = (await db.execute(select(User).where(User.id == id))).scalar_one_or_none()
     return user
+
+async def admin_get_subs(db: AsyncSession) -> list[Subscription] | None:
+    subscriptions = (await db.execute(select(Subscription).options(selectinload(Subscription.user), selectinload(Subscription.plan)))).scalars().all()
+    return subscriptions
