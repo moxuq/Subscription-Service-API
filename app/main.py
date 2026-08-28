@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import hmac
 import hashlib
 import os
+import json
 
 from .schemas import SubscriptionAdminOut, StatsOut, UserOut, UserCreate, Token, PlanOut, TokenRefresh, SubscriptionCreate, SubscriptionOut, WebhookPayload
 from .crud import (create_user, 
@@ -70,11 +71,11 @@ async def refresh(token: TokenRefresh, db: AsyncSession = Depends(get_db)):
 @app.get('/plans', response_model=list[PlanOut])
 async def get_plans(db: AsyncSession = Depends(get_db), r_client: Redis = Depends(get_redis)):
     r_plans = await r_client.get("plans:all")
-    if r_plans is not None:
-        return r_plans
+    if r_plans:
+        return json.loads(r_plans)
     plans = await get_all_plans(db)
-    py_plans = PlanOut.model_validate(plans)
-    await r_client.setex("plans:all", 3600, py_plans.model_dump_json())
+    py_plans = [PlanOut.model_validate(p).model_dump() for p in plans]
+    await r_client.setex("plans:all", 3600, json.dumps(py_plans))
     return plans
 
 @app.get('/plans/{id}', response_model=PlanOut)
@@ -91,11 +92,13 @@ async def post_subscription(subscription: SubscriptionCreate, user: User = Depen
 @app.get('/subscriptions/active', response_model=SubscriptionOut)
 async def get_subscription(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db), r_client: Redis = Depends(get_redis)):
     r_subscription = await r_client.get(f"sub:{user.id}")
-    if r_subscription is not None:
-        return r_subscription
+    if r_subscription:
+        return json.loads(r_subscription)
     subscription = await get_active_subscription(db, user.id)
-    py_subscriptions = SubscriptionOut.model_validate(subscription)
-    await r_client.setex(f"sub:{user.id}", 300, py_subscriptions.model_dump_json())
+    if not subscription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Подписка не найдена')
+    py_subscriptions = SubscriptionOut.model_validate(subscription).model_dump()
+    await r_client.setex(f"sub:{user.id}", 300, json.dumps(py_subscriptions))
     return subscription
 
 @app.delete('/subscriptions', status_code=status.HTTP_204_NO_CONTENT)
