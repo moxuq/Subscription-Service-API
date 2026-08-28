@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_DAYS: int = 7
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://cache:6379/0"
     
     # Resend (email)
     RESEND_API_KEY: str
