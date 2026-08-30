@@ -5,19 +5,23 @@ A service for creating and managing tariff-based subscriptions, featuring compre
 
 Core stack: FastAPI, JWT, Redis, Celery, Alembic, PostgreSQL, Docker, Resend
 
-```http
-/auth/login - Log in to account
-/auth/register - Register
-/auth/refresh - Refresh token
-/plans - Get all plans
-/plans/{id} - Get plan by ID
-/subscriptions - Get all subscriptions
-/subscriptions/active - Get active subscription
-/subscriptions/{id} - Get specific subscription
-/payments/webhook - Payment status webhook
-/admin/subscriptions - Get all subscriptions
-/admin/stats - Get service statistics
-```
+## API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | — | Register new user |
+| POST | `/auth/login` | — | Login, get access + refresh tokens |
+| POST | `/auth/refresh` | — | Refresh access token |
+| GET | `/plans` | — | Get all plans (cached 1h) |
+| GET | `/plans/{id}` | — | Get plan by ID |
+| POST | `/subscriptions` | JWT | Create subscription (rate limit: 5 req/min) |
+| GET | `/subscriptions/active` | JWT | Get active subscription (cached 5min) |
+| DELETE | `/subscriptions` | JWT | Delete active subscription |
+| DELETE | `/subscriptions/{id}` | JWT | Delete specific subscription |
+| POST | `/subscriptions/{id}/cancel` | JWT | Cancel subscription |
+| POST | `/payments/webhook` | HMAC | Payment status webhook (idempotent) |
+| GET | `/admin/subscriptions` | Admin | Get all subscriptions (selectinload) |
+| GET | `/admin/stats` | Admin | Get MRR, active subs, total users |
 
 # Quick Start
 
@@ -40,3 +44,21 @@ docker-compose up --build
 |`RESEND_API_KEY`|Your Resend API key|`re_xxxxx`|
 |`RESEND_EMAIL`|Your Resend Email|`noreply@example.com`|
 |`DEBUG`|Debug mode|`true`|
+
+## Architecture
+
+The service consists of 5 Docker containers:
+
+| Service | Role |
+|---------|------|
+| **app** | FastAPI server (port 8000) |
+| **db** | PostgreSQL 15 database |
+| **cache** | Redis for caching and rate limiting |
+| **worker** | Celery worker for background tasks |
+| **beat** | Celery Beat scheduler |
+
+**Background tasks:**
+- `send_welcome_email` — triggered on user registration
+- `send_payment_confirmation` — triggered after successful webhook
+- `check_expired_subscriptions` — daily at 00:00, downgrades expired subs
+- `send_expiry_warning` — daily at 09:00, warns users 3 days before expiry
