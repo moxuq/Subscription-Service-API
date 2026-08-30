@@ -1,5 +1,4 @@
 from celery import Celery
-from dotenv import load_dotenv
 import os
 
 REDIS_URL = os.getenv('REDIS_URL')
